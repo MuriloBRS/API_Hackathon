@@ -1,4 +1,5 @@
-const { listar, cadastrar, cadastrar_treino, listar_treino, login, home, iniciar_treino, finalizar_treino, perfil, adicionar_amizade, aceitar_amizade, recusar_amizade, listar_amigos, listar_solicitacoes } = require('../model/Model')
+const { listar, cadastrar, cadastrar_treino, listar_treino, login, home, iniciar_treino, finalizar_treino, perfil, adicionar_amizade, aceitar_amizade, recusar_amizade, listar_amigos, listar_solicitacoes, batalhas, editar_objetivo, verificar_objetivo, adicionar_objetivo, concluir_objetivo, editar_usuario } = require('../model/Model')
+
 module.exports ={
    Listar_users(req,res){
       res.send(listar())
@@ -152,6 +153,75 @@ module.exports ={
       })
    },
 
+   batalhasC(req,res){
+      const { usuarios_id1, usuarios_id2 } = req.params
+      if (!usuarios_id1 || !usuarios_id2){
+         return res.status(400).json({message: "todos os campos tem que estar preenchidos"})
+      }
+      batalhas(usuarios_id1, usuarios_id2, (error,results) => {
+         if (error){
+            return res.status(500).json({message : "erro ao listar batalhas"})
+         }
+         res.status(200).json(results)
+      })
+   },
+
+   verificarObjetivoC(req,res){
+      const { usuarios_id } = req.params;
+      if (!usuarios_id){
+         return res.status(400).json({message: "todos os campos tem que estar preenchidos"})
+      }
+      verificar_objetivo(usuarios_id, (error,results) => {
+         if (error){
+            return res.status(500).json({message : "erro ao verificar objetivo"})
+         }
+         res.status(200).json(results)
+      })
+   },
+
+   editarObjetivoC(req,res){
+      const { usuarios_id, novo_objetivo } = req.body;
+      if (!usuarios_id || !novo_objetivo){
+         return res.status(400).json({message: "todos os campos tem que estar preenchidos"})
+      }
+      editar_objetivo(usuarios_id, novo_objetivo, (error,results) => {
+         if (error){
+            return res.status(500).json({message : "erro ao editar objetivo"})
+         }
+         res.status(200).json(results)
+      })
+   },
+
+   adicionarObjetivoC(req,res){
+      const { objetivo, usuarios_id } = req.body;
+      if (!objetivo || !usuarios_id){
+         return res.status(400).json({message: "todos os campos tem que estar preenchidos"})
+      }
+      adicionar_objetivo(objetivo, usuarios_id, (error,results) => {
+         if (error){
+            return res.status(500).json({message : "erro ao adicionar objetivo"})
+         }
+         res.status(200).json(results)
+      })
+   },
+
+   concluir_objetivoC(req,res){
+      const{ usuarios_id } = req.params;
+
+      if(!usuarios_id){
+         return res.status(400).json({message: "ID é obrigatório!"})
+      }
+      concluir_objetivo(usuarios_id, (error, results) => {
+         if (error){
+            return res.status(500).json({message : "erro ao concluir ojetivo"})
+         }
+      
+         res.status(200).json(results)   
+      }
+   )
+
+   },
+
    login(req,res){
       const {nome, senha} = req.body;
       if(!nome || !senha){
@@ -180,7 +250,32 @@ module.exports ={
          }
       res.status(200).json(results)
       })
-   }
+   },
+
+   editarUsuarioC(req, res) {
+
+      const { usuarios_id, ...dados } = req.body;
+
+      if (!usuarios_id) {
+         return res.status(400).json({
+            message: "O ID do usuário é obrigatório"
+         });
+      }
+
+      editar_usuario(usuarios_id, dados, (error, results) => {
+
+         if (error) {
+            return res.status(400).json({
+            message: error.message
+            });
+         }
+
+         res.status(200).json({
+            message: "Usuário atualizado com sucesso",
+            resultado: results
+         });
+      });
+   },
 
    
 }

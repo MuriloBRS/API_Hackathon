@@ -61,6 +61,30 @@ Router.get('/amizades/solicitacoes/:usuarios_id', (req,res) => {
     controller.listarSolicitacoesC(req,res)
 });
 
+Router.get('/batalhas/:usuarios_id1/:usuarios_id2', (req,res) => {
+    controller.batalhasC(req,res)
+});
+
+Router.post('/objetivos', (req,res) => {
+    controller.adicionarObjetivoC(req,res)
+});
+
+Router.put('/objetivos/editar', (req,res) => {
+    controller.editarObjetivoC(req,res)
+});
+
+Router.get('/objetivos/:usuarios_id', (req,res) => {
+    controller.verificarObjetivoC(req,res)
+});
+
+Router.get('/objetivos/concluido/:usuarios_id' , (req,res) => {
+    controller.concluir_objetivoC(req,res)
+})
+
+Router.put('/usuario', (req, res) => {
+    controller.editarUsuarioC(req, res);
+});
+
 
 
 

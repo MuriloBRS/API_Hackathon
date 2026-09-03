@@ -74,6 +74,61 @@ function cadastrar(nome, altura, peso, senha, data_de_nascimento, callback) {
 })
 }
 
+function editar_usuario(usuarios_id, dados, callback) {
+
+  const campos = [];
+  const valores = [];
+
+  if (dados.nome !== undefined) {
+    campos.push('nome = ?');
+    valores.push(dados.nome);
+  }
+
+  if (dados.altura !== undefined) {
+    campos.push('altura = ?');
+    valores.push(dados.altura);
+  }
+
+  if (dados.peso !== undefined) {
+    campos.push('peso = ?');
+    valores.push(dados.peso);
+  }
+
+  if (dados.senha !== undefined) {
+    campos.push('senha = ?');
+    valores.push(dados.senha);
+  }
+
+  if (dados.data_de_nascimento !== undefined) {
+    campos.push('data_de_nascimento = ?');
+    valores.push(dados.data_de_nascimento);
+  }
+
+  if (campos.length === 0) {
+    return callback(
+      new Error('Nenhuma informação foi enviada para atualizar'),
+      null
+    );
+  }
+
+  valores.push(usuarios_id);
+
+  const query = `
+    UPDATE usuarios
+    SET ${campos.join(', ')}
+    WHERE id = ?
+  `;
+
+  connection.query(query, valores, (error, results) => {
+
+    if (error) {
+      return callback(error, null);
+    }
+
+    callback(null, results);
+  });
+}
+
 //voltar para colocar exercicicos
 function cadastrar_treino(usuarios_id, nome,tipo, callback) {
   const query = 'INSERT INTO treinos (usuarios_id, nome, tipo) VALUES (?, ?, ?)';
@@ -510,6 +565,198 @@ function listar_solicitacoes(usuario_id, callback) {
         }
     );
 }
+function batalhas(usuario_id1, usuario_id2, callback){
+  const verificar = `
+  SELECT * FROM amizades
+  WHERE (
+    (usuarios_id1 = ? AND usuarios_id2 = ?)
+    OR
+    (usuarios_id1 = ? AND usuarios_id2 = ?)
+  )
+  AND status = 'aceita'
+`;
+
+  connection.query(
+    verificar,
+    [usuario_id1, usuario_id2, usuario_id2, usuario_id1],
+    (error, results) => {
+
+      if (error) {
+        return callback(error, null);
+      }
+
+      if (results.length === 0) {
+        return callback(
+          new Error('Os usuários não são amigos'),
+          null
+        );
+      }
+
+  const query = `
+    SELECT 
+            usuarios.id,
+            usuarios.nome,
+            nivel.xp,
+            nivel.experiencia AS nivel,
+            ofensivas.ofensiva_atual
+        FROM usuarios
+        INNER JOIN nivel
+            ON usuarios.id = nivel.usuarios_id
+        INNER JOIN ofensivas
+            ON usuarios.id = ofensivas.usuarios_id
+        WHERE usuarios.id = ? OR usuarios.id = ?
+  `;
+
+  connection.query(query, [usuario_id1, usuario_id2], (error, results) => {
+    if (error) {
+      return callback(error, null);
+    }
+
+    callback(null, results);
+  });
+});
+}
+
+function adicionar_objetivo(objetivo, usuarios_id, callback) {
+
+  const verificar = `
+    SELECT * FROM objetivos
+    WHERE usuarios_id = ?
+  `;
+
+  connection.query(verificar, [usuarios_id], (error, resultado) => {
+
+    if (error) {
+      return callback(error, null);
+    }
+
+    if (resultado.length > 0) {
+      return callback(
+        new Error('Usuário já possui um objetivo'),
+        null
+      );
+    }
+
+    const query = 'INSERT INTO objetivos (meta_peso, usuarios_id) VALUES (?, ?)';
+
+    connection.query(query, [objetivo, usuarios_id], (error, results) => {
+
+      if (error) {
+        return callback(error, null);
+      }
+
+      callback(null, results);
+    });
+  });
+}
+function verificar_objetivo(usuarios_id, callback) {
+  const query = `SELECT
+                        usuarios.id,
+                        usuarios.nome,
+                        usuarios.peso,
+                        objetivos.meta_peso
+                FROM usuarios
+                INNER JOIN objetivos
+                          ON usuarios.id = objetivos.usuarios_id
+                WHERE usuarios.id = ?               
+  `;
+  connection.query(query, [usuarios_id], (error, results) => {
+    if (error) {
+      return callback(error, null);
+    }
+    if(results[0].peso < results[0].meta_peso){
+      return callback(null, { atingido: false });
+    }else if(results[0].peso > results[0].meta_peso){
+      return callback(null, { atingido: false });   
+    }
+    return callback(null, { atingido: true });
+  });
+}
+
+function editar_objetivo(usuarios_id, novo_objetivo, callback) {
+  const query = 'UPDATE objetivos SET meta_peso = ? WHERE usuarios_id = ?';
+  connection.query(query, [novo_objetivo, usuarios_id], (error, results) => {
+    if (error) {
+      return callback(error, null);
+    }
+    callback(null, results);
+  });
+}
+
+function concluir_objetivo(usuarios_id, callback) {
+
+  const conferir = `SELECT
+                        usuarios.id,
+                        usuarios.nome,
+                        usuarios.peso,
+                        objetivos.meta_peso
+                FROM usuarios
+                INNER JOIN objetivos
+                          ON usuarios.id = objetivos.usuarios_id
+                WHERE usuarios.id = ?               
+  `;
+
+  const query = `
+    DELETE FROM objetivos
+    WHERE usuarios_id = ?
+  `;
+
+  connection.query(conferir, [usuarios_id], (error, resultado) => {
+
+    if (error) {
+      return callback(error, null);
+    }
+
+    if (resultado.length === 0) {
+      return callback(
+        new Error('Objetivo não encontrado'),
+        null
+      );
+    }
+
+    if (
+      Number(resultado[0].peso) ===
+      Number(resultado[0].meta_peso)
+    ) {
+
+      const adicionarXP = `
+                            UPDATE nivel
+                            SET xp = xp + 2000
+                            WHERE usuarios_id = ?
+  `;
+
+      connection.query(adicionarXP, [usuarios_id], (error, resultadoXP) => {
+
+    if (error) {
+      return callback(error, null);
+    }
+
+    connection.query(query, [usuarios_id], (error, results) => {
+
+      if (error) {
+        return callback(error, null);
+      }
+
+      return callback(null, {
+        atingido: true,
+        mensagem: "Objetivo concluído! +2000 XP",
+        xp_adicionado: 2000,
+        resultado: results
+      });
+
+    });
+  });
+
+} else {
+
+      return callback(null, {
+        atingido: false,
+        mensagem: "Objetivo ainda não foi atingido"
+      });
+
+    }
+  });
+}
 
 function perfil(callback){
   const query = 'SELECT * FROM usuarios WHERE id = ?';
@@ -578,5 +825,11 @@ module.exports = {
   aceitar_amizade,
   recusar_amizade,
   listar_amigos,
-  listar_solicitacoes
+  listar_solicitacoes,
+  batalhas,
+  verificar_objetivo,
+  adicionar_objetivo,
+  editar_objetivo,
+  concluir_objetivo,
+  editar_usuario
 }
