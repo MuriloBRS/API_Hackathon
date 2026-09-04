@@ -2,16 +2,16 @@ const express = require('express');
 const Router = express.Router();
 const controller = require('../controller/Controller');
 
-// Router.get('/listar', (req,res)=> {
-//     controller.Listar_users(req,res);
-// })
+ Router.get('/listar', (req,res)=> {
+     controller.Listar_users(req,res);
+ })
 
 //CADASTRO
 Router.post('/cadastro', (req,res)=> {
     controller.Cadastro(req,res);
 })
 //LOGIN
-Router.get('/login', (req,res) => {
+Router.post('/login', (req,res) => {
     controller.login(req,res);
 })
 
@@ -29,11 +29,12 @@ Router.get('/treinoL', (req,res) => {
     controller.listar_treino(req,res);
 })
 
-Router.get('/treinoI', (req,res)=>{
+//iniciar
+Router.post('/treinoI', (req,res)=>{
     controller.iniciar_treinoController(req,res)
 })
-
-Router.get('/treino', (req,res) => {
+//finalizar
+Router.post('/treino', (req,res) => {
     controller.finalizar_treinoController(req,res)
 })
 
@@ -57,14 +58,29 @@ Router.get('/amizades/:usuarios_id', (req,res) => {
     controller.listarAmigosC(req,res)
 });
 
-Router.get('/amizades/solicitacoes/:usuarios_id', (req,res) => {
-    controller.listarSolicitacoesC(req,res)
+Router.get('/batalhas/ativas/:usuarios_id', (req, res) => {
+    controller.listarBatalhasAtivasC(req, res);
 });
 
-Router.get('/batalhas/:usuarios_id1/:usuarios_id2', (req,res) => {
-    controller.batalhasC(req,res)
+Router.get('/batalhas/solicitacoes/:usuarios_id', (req, res) => {
+    controller.listarSolicitacoesBatalhaC(req, res);
 });
 
+Router.get('/batalhas/:usuarios_id1/:usuarios_id2', (req, res) => {
+    controller.batalhasC(req, res);
+});
+
+Router.post('/batalhas', (req, res) => {
+    controller.solicitarBatalhaC(req, res);
+});
+
+Router.put('/batalhas/aceitar/:id', (req, res) => {
+    controller.aceitarBatalhaC(req, res);
+});
+
+Router.put('/batalhas/recusar/:id', (req, res) => {
+    controller.recusarBatalhaC(req, res);
+});
 Router.post('/objetivos', (req,res) => {
     controller.adicionarObjetivoC(req,res)
 });
@@ -85,6 +101,13 @@ Router.put('/usuario', (req, res) => {
     controller.editarUsuarioC(req, res);
 });
 
+Router.put('/xp', (req, res) => {
+    controller.adicionarXpC(req, res)
+});
+
+Router.get('/conquistas/:usuarios_id', (req, res) => {
+    controller.listar_conquistas(req, res);
+});
 
 
 

@@ -43,10 +43,10 @@ function listar(callback) {
   connection.query(query, (error, results) => {
     if (error) {
       console.log('Erro ao listar usuários:', error);
-      callback(error, null);
+      return callback(error, null);
     } else {
       console.log('Usuários listados com sucesso:', results);
-      callback(null, results);
+      return callback(null, results);
     }
 })
 }
@@ -199,13 +199,14 @@ function iniciar_treino(usuarios_id, treino_id, callback) {
 }
 
 function finalizar_treino(usuarios_id, treino_id, callback){
- 
+
   const query = `
     SELECT * FROM treinos
     WHERE id = ? AND usuarios_id = ?
   `;
 
   connection.query(query, [treino_id, usuarios_id], (error, results) => {
+
     if (error) {
       console.log(error);
       return callback(error, null);
@@ -219,12 +220,13 @@ function finalizar_treino(usuarios_id, treino_id, callback){
     }
 
     const queryRegistro = `
-      SELECT id FROM qntd_treino 
-      WHERE treinos_id = ? AND hora_fim IS NULL 
+      SELECT id FROM qntd_treino
+      WHERE treinos_id = ? AND hora_fim IS NULL
       ORDER BY id DESC LIMIT 1
     `;
 
     connection.query(queryRegistro, [treino_id], (error, resultadoRegistro) => {
+
       if (error) {
         console.log(error);
         return callback(error, null);
@@ -237,30 +239,55 @@ function finalizar_treino(usuarios_id, treino_id, callback){
         );
       }
 
-      const id_qtd = resultadoRegistro[0].id
+      const id_qtd = resultadoRegistro[0].id;
 
-    console.log('Treino encontrado:', results[0].id);
+      console.log('Treino encontrado:', results[0].id);
 
-    const query2 = `
-      UPDATE qntd_treino 
-      SET hora_fim = NOW()
-      WHERE treinos_id = ? AND id = ?
-    `;
+      const query2 = `
+        UPDATE qntd_treino
+        SET hora_fim = NOW()
+        WHERE treinos_id = ? AND id = ?
+      `;
 
-    connection.query(query2, [treino_id, id_qtd], (error, results2) => {
-      if (error) {
-        console.log(error);
-        return callback(error, null);
-      }
+      connection.query(query2, [treino_id, id_qtd], (error, results2) => {
 
-      return callback(null, {
-        treino: results[0].nome,
-        registro: results2
+        if (error) {
+          console.log(error);
+          return callback(error, null);
+        }
+
+        verificar_primeira_conquista(usuarios_id, (error, conquistaNova) => {
+
+          if (error) {
+            console.log('Erro ao verificar conquista:', error);
+            return callback(error, null);
+          }
+
+          adicionar_xp(usuarios_id, 500, (error, resultadoXP) => {
+
+            if (error) {
+              console.log('Erro ao adicionar XP:', error);
+              return callback(error, null);
+            }
+
+            return callback(null, {
+              treino: results[0].nome,
+              registro: results2,
+              xp: resultadoXP.xp,
+              nivel: resultadoXP.nivel,
+              conquista: conquistaNova
+            });
+
+          });
+
+        });
+
       });
+
     });
+
   });
 
-})
 }
 //LOGIN
 function login(nome, senha, callback) {
@@ -361,38 +388,93 @@ function login(nome, senha, callback) {
 }
 
 //HOME
-function home(callback){
-  //nome
+function home(callback) {
+
   const query = 'SELECT * FROM usuarios WHERE id = ?';
+
   connection.query(query, [id], (error, results) => {
-      if (error) { 
+
+    if (error) {
+      console.log('Erro ao buscar usuário:', error);
+      return callback(error, null);
+    }
+
+    if (results.length === 0) {
+      return callback(new Error('Usuário não encontrado'), null);
+    }
+
+    const query2 = `
+      SELECT * FROM ofensivas
+      WHERE usuarios_id = ?
+    `;
+
+    connection.query(query2, [id], (error, resultado2) => {
+
+      if (error) {
+        console.log('Erro ao buscar ofensiva:', error);
         return callback(error, null);
       }
-      
-      //callback(null, results);
-      const query2 = 'SELECT * FROM ofensivas WHERE usuarios_id = ?';
-      connection.query(query2, [id], (error, resultado2) => {
-        if(error){
+
+      if (resultado2.length === 0) {
+        return callback(
+          new Error('Ofensiva do usuário não encontrada'),
+          null
+        );
+      }
+
+      const query3 = `
+        SELECT * FROM nivel
+        WHERE usuarios_id = ?
+      `;
+
+      connection.query(query3, [id], (error, resultado3) => {
+
+        if (error) {
+          console.log('Erro ao buscar nível:', error);
           return callback(error, null);
         }
 
-        const query3 = "SELECT * FROM nivel WHERE usuarios_id = ?"
-        connection.query(query3, [id], (error,resultado3)=>{
-          if (error){
-            return callback(error,null)
+        if (resultado3.length === 0) {
+          return callback(
+            new Error('Nível do usuário não encontrado'),
+            null
+          );
+        }
+
+        const query4 = `
+          SELECT * FROM treinos
+          WHERE usuarios_id = ?
+          ORDER BY id ASC
+          LIMIT 1
+        `;
+
+        connection.query(query4, [id], (error, resultado4) => {
+
+          if (error) {
+            console.log('Erro ao buscar treino:', error);
+            return callback(error, null);
           }
-        
-        return callback(null, {
-          nome: results[0].nome,
-          ofensiva: resultado2[0].ofensiva_atual,
-          vida: resultado2[0].vidas,
-          xp: resultado3[0].xp,
-          nivel: resultado3[0].experiencia,
-          
-        })
-      })
-    })
-  })
+
+          return callback(null, {
+            id: results[0].id,
+            nome: results[0].nome,
+            ofensiva: resultado2[0].ofensiva_atual,
+            vida: resultado2[0].vidas,
+            xp: resultado3[0].xp,
+            nivel: resultado3[0].experiencia,
+            treinos: resultado4.length > 0 ? {
+              id: resultado4[0].id
+            } : null
+          });
+
+        });
+
+      });
+
+    });
+
+  });
+
 }
 
 function adicionar_amizade(usuarios_id1, usuarios_id2, callback) {
@@ -565,56 +647,262 @@ function listar_solicitacoes(usuario_id, callback) {
         }
     );
 }
-function batalhas(usuario_id1, usuario_id2, callback){
+function batalhas(usuario_id1, usuario_id2, callback) {
+
+  // VERIFICA SE SÃO AMIGOS
   const verificar = `
-  SELECT * FROM amizades
-  WHERE (
-    (usuarios_id1 = ? AND usuarios_id2 = ?)
-    OR
-    (usuarios_id1 = ? AND usuarios_id2 = ?)
-  )
-  AND status = 'aceita'
-`;
+    SELECT * FROM amizades
+    WHERE (
+      (usuarios_id1 = ? AND usuarios_id2 = ?)
+      OR
+      (usuarios_id1 = ? AND usuarios_id2 = ?)
+    )
+    AND status = 'aceita'
+  `;
 
   connection.query(
     verificar,
     [usuario_id1, usuario_id2, usuario_id2, usuario_id1],
-    (error, results) => {
+    (error, amizade) => {
 
       if (error) {
         return callback(error, null);
       }
 
-      if (results.length === 0) {
+      if (amizade.length === 0) {
         return callback(
           new Error('Os usuários não são amigos'),
           null
         );
       }
 
-  const query = `
-    SELECT 
+      // BUSCA OS DADOS DOS DOIS USUÁRIOS
+      const query = `
+        SELECT
+          usuarios.id,
+          usuarios.nome,
+          nivel.xp,
+          nivel.experiencia AS nivel,
+          ofensivas.ofensiva_atual,
+
+          (
+            SELECT COUNT(qntd_treino.id)
+            FROM qntd_treino
+            INNER JOIN treinos
+              ON qntd_treino.treinos_id = treinos.id
+            WHERE treinos.usuarios_id = usuarios.id
+            AND qntd_treino.hora_fim IS NOT NULL
+          ) AS treinos_concluidos
+
+        FROM usuarios
+
+        INNER JOIN nivel
+          ON usuarios.id = nivel.usuarios_id
+
+        INNER JOIN ofensivas
+          ON usuarios.id = ofensivas.usuarios_id
+
+        WHERE usuarios.id = ? OR usuarios.id = ?
+      `;
+
+      connection.query(
+        query,
+        [usuario_id1, usuario_id2],
+        (error, results) => {
+
+          if (error) {
+            console.log('Erro ao buscar dados da batalha:', error);
+            return callback(error, null);
+          }
+
+          callback(null, results);
+        }
+      );
+
+    }
+  );
+}
+
+function solicitar_batalha(usuario_id1, usuario_id2, callback) {
+
+    // Verifica se já existe uma solicitação ou batalha entre os usuários
+    const verificar = `
+        SELECT *
+        FROM batalhas
+        WHERE
+            (
+                (usuarios_id1 = ? AND usuarios_id2 = ?)
+                OR
+                (usuarios_id1 = ? AND usuarios_id2 = ?)
+            )
+            AND status IN ('pendente', 'aceita')
+    `;
+
+    connection.query(
+        verificar,
+        [usuario_id1, usuario_id2, usuario_id2, usuario_id1],
+        (error, resultado) => {
+
+            if (error) {
+                return callback(error, null);
+            }
+
+            if (resultado.length > 0) {
+                return callback(
+                    new Error('Já existe uma batalha entre esses usuários'),
+                    null
+                );
+            }
+
+            const inserir = `
+                INSERT INTO batalhas
+                (usuarios_id1, usuarios_id2, status)
+                VALUES (?, ?, 'pendente')
+            `;
+
+            connection.query(
+                inserir,
+                [usuario_id1, usuario_id2],
+                (error, resultado) => {
+
+                    if (error) {
+                        return callback(error, null);
+                    }
+
+                    callback(null, resultado);
+                }
+            );
+        }
+    );
+}
+
+
+function aceitar_batalha(batalha_id, callback) {
+
+    const query = `
+        UPDATE batalhas
+        SET status = 'aceita'
+        WHERE id = ?
+        AND status = 'pendente'
+    `;
+
+    connection.query(
+        query,
+        [batalha_id],
+        (error, resultado) => {
+
+            if (error) {
+                return callback(error, null);
+            }
+
+            callback(null, resultado);
+        }
+    );
+}
+
+
+function recusar_batalha(batalha_id, callback) {
+
+    const query = `
+        UPDATE batalhas
+        SET status = 'recusada'
+        WHERE id = ?
+        AND status = 'pendente'
+    `;
+
+    connection.query(
+        query,
+        [batalha_id],
+        (error, resultado) => {
+
+            if (error) {
+                return callback(error, null);
+            }
+
+            callback(null, resultado);
+        }
+    );
+}
+
+function listar_solicitacoes_batalha(usuarios_id, callback) {
+
+    const query = `
+        SELECT
+            batalhas.id,
+            batalhas.usuarios_id1,
+            batalhas.usuarios_id2,
+            batalhas.status,
+            usuarios.nome
+        FROM batalhas
+        INNER JOIN usuarios
+            ON usuarios.id = batalhas.usuarios_id1
+        WHERE batalhas.usuarios_id2 = ?
+        AND batalhas.status = 'pendente'
+    `;
+
+    connection.query(
+        query,
+        [usuarios_id],
+        (error, results) => {
+
+            if (error) {
+                return callback(error, null);
+            }
+
+            callback(null, results);
+        }
+    );
+}
+
+function listar_batalhas_ativas(usuarios_id, callback) {
+
+    const query = `
+        SELECT
             usuarios.id,
             usuarios.nome,
             nivel.xp,
             nivel.experiencia AS nivel,
-            ofensivas.ofensiva_atual
-        FROM usuarios
+            ofensivas.ofensiva_atual,
+
+            (
+                SELECT COUNT(qntd_treino.id)
+                FROM qntd_treino
+                INNER JOIN treinos
+                    ON qntd_treino.treinos_id = treinos.id
+                WHERE treinos.usuarios_id = usuarios.id
+                AND qntd_treino.hora_fim IS NOT NULL
+            ) AS treinos_concluidos
+
+        FROM batalhas
+
+        INNER JOIN usuarios
+            ON usuarios.id = batalhas.usuarios_id1
+            OR usuarios.id = batalhas.usuarios_id2
+
         INNER JOIN nivel
             ON usuarios.id = nivel.usuarios_id
+
         INNER JOIN ofensivas
             ON usuarios.id = ofensivas.usuarios_id
-        WHERE usuarios.id = ? OR usuarios.id = ?
-  `;
 
-  connection.query(query, [usuario_id1, usuario_id2], (error, results) => {
-    if (error) {
-      return callback(error, null);
-    }
+        WHERE
+            (batalhas.usuarios_id1 = ? OR batalhas.usuarios_id2 = ?)
+            AND batalhas.status = 'aceita'
+    `;
 
-    callback(null, results);
-  });
-});
+    connection.query(
+        query,
+        [usuarios_id, usuarios_id],
+        (error, results) => {
+
+            if (error) {
+                console.log('ERRO AO LISTAR BATALHAS ATIVAS:', error);
+                return callback(error, null);
+            }
+
+            callback(null, results);
+        }
+    );
 }
 
 function adicionar_objetivo(objetivo, usuarios_id, callback) {
@@ -650,37 +938,110 @@ function adicionar_objetivo(objetivo, usuarios_id, callback) {
   });
 }
 function verificar_objetivo(usuarios_id, callback) {
-  const query = `SELECT
-                        usuarios.id,
-                        usuarios.nome,
-                        usuarios.peso,
-                        objetivos.meta_peso
-                FROM usuarios
-                INNER JOIN objetivos
-                          ON usuarios.id = objetivos.usuarios_id
-                WHERE usuarios.id = ?               
+  const query = `
+    SELECT
+      usuarios.id,
+      usuarios.nome,
+      usuarios.peso,
+      objetivos.meta_peso
+    FROM usuarios
+    LEFT JOIN objetivos
+      ON usuarios.id = objetivos.usuarios_id
+    WHERE usuarios.id = ?
   `;
+
   connection.query(query, [usuarios_id], (error, results) => {
     if (error) {
       return callback(error, null);
     }
-    if(results[0].peso < results[0].meta_peso){
-      return callback(null, { atingido: false });
-    }else if(results[0].peso > results[0].meta_peso){
-      return callback(null, { atingido: false });   
+
+    if (results.length === 0) {
+      return callback(new Error('Usuário não encontrado'), null);
     }
-    return callback(null, { atingido: true });
+
+    // Usuário existe, mas não possui objetivo
+    if (results[0].meta_peso === null) {
+      return callback(null, {
+        tem_objetivo: false,
+        peso: Number(results[0].peso)
+      });
+    }
+
+    const peso = Number(results[0].peso);
+    const meta = Number(results[0].meta_peso);
+
+    return callback(null, {
+      tem_objetivo: true,
+      peso: peso,
+      meta_peso: meta,
+      atingido: peso === meta
+    });
   });
 }
 
 function editar_objetivo(usuarios_id, novo_objetivo, callback) {
-  const query = 'UPDATE objetivos SET meta_peso = ? WHERE usuarios_id = ?';
-  connection.query(query, [novo_objetivo, usuarios_id], (error, results) => {
-    if (error) {
-      return callback(error, null);
-    }
-    callback(null, results);
-  });
+
+    const verificar = `
+        SELECT * FROM objetivos
+        WHERE usuarios_id = ?
+    `;
+
+    connection.query(verificar, [usuarios_id], (error, results) => {
+
+        if (error) {
+            return callback(error, null);
+        }
+
+        // Usuário ainda não possui uma meta → CRIA
+        if (results.length === 0) {
+
+            const inserir = `
+                INSERT INTO objetivos (usuarios_id, meta_peso)
+                VALUES (?, ?)
+            `;
+
+            connection.query(
+                inserir,
+                [usuarios_id, novo_objetivo],
+                (error, resultado) => {
+
+                    if (error) {
+                        return callback(error, null);
+                    }
+
+                    callback(null, {
+                        mensagem: "Objetivo criado com sucesso",
+                        resultado: resultado
+                    });
+                }
+            );
+
+        } else {
+
+            // Usuário já possui uma meta → ATUALIZA
+            const atualizar = `
+                UPDATE objetivos
+                SET meta_peso = ?
+                WHERE usuarios_id = ?
+            `;
+
+            connection.query(
+                atualizar,
+                [novo_objetivo, usuarios_id],
+                (error, resultado) => {
+
+                    if (error) {
+                        return callback(error, null);
+                    }
+
+                    callback(null, {
+                        mensagem: "Objetivo atualizado com sucesso",
+                        resultado: resultado
+                    });
+                }
+            );
+        }
+    });
 }
 
 function concluir_objetivo(usuarios_id, callback) {
@@ -758,6 +1119,111 @@ function concluir_objetivo(usuarios_id, callback) {
   });
 }
 
+function adicionar_xp(usuarios_id, quantidade, callback) {
+  const query = `
+    SELECT xp, experiencia
+    FROM nivel
+    WHERE usuarios_id = ?
+  `;
+
+  connection.query(query, [usuarios_id], (error, resultado) => {
+    if (error) {
+      return callback(error, null);
+    }
+
+    if (resultado.length === 0) {
+      return callback(new Error('Nível do usuário não encontrado'), null);
+    }
+
+    let xp = Number(resultado[0].xp);
+    let nivel = Number(resultado[0].experiencia);
+
+    xp += quantidade;
+
+    if (xp >= 20000) {
+      nivel += Math.floor(xp / 20000);
+      xp = xp % 20000;
+    }
+
+    const atualizar = `
+      UPDATE nivel
+      SET xp = ?, experiencia = ?
+      WHERE usuarios_id = ?
+    `;
+
+    connection.query(
+      atualizar,
+      [xp, nivel, usuarios_id],
+      (error, resultadoAtualizado) => {
+        if (error) {
+          return callback(error, null);
+        }
+
+        callback(null, {
+          xp: xp,
+          nivel: nivel
+        });
+      }
+    );
+  });
+}
+
+function listar_conquistas(usuarios_id, callback) {
+
+  const query = `
+    SELECT *
+    FROM conquistas
+    WHERE usuarios_id = ?
+  `;
+
+  connection.query(query, [usuarios_id], (error, results) => {
+
+    if (error) {
+      console.log(error);
+      return callback(error, null);
+    }
+
+    callback(null, results);
+
+  });
+}
+
+function verificar_primeira_conquista(usuarios_id, callback) {
+
+  const query = `
+    SELECT id
+    FROM conquistas
+    WHERE usuarios_id = ? AND tipo = 1
+  `;
+
+  connection.query(query, [usuarios_id], (error, resultado) => {
+
+    if (error) {
+      console.log(error);
+      return callback(error);
+    }
+
+    if (resultado.length > 0) {
+      return callback(null, false);
+    }
+
+    const query2 = `
+      INSERT INTO conquistas (usuarios_id, tipo)
+      VALUES (?, 1)
+    `;
+
+    connection.query(query2, [usuarios_id], (error, resultado2) => {
+
+      if (error) {
+        console.log(error);
+        return callback(error);
+      }
+
+      callback(null, true);
+    });
+  });
+}
+
 function perfil(callback){
   const query = 'SELECT * FROM usuarios WHERE id = ?';
   connection.query(query, [id], (error, results) => {
@@ -831,5 +1297,13 @@ module.exports = {
   adicionar_objetivo,
   editar_objetivo,
   concluir_objetivo,
-  editar_usuario
+  editar_usuario,
+  adicionar_xp,
+  solicitar_batalha,
+  aceitar_batalha,
+  recusar_batalha,
+  listar_solicitacoes_batalha,
+  listar_batalhas_ativas,
+  listar_conquistas,
+  verificar_primeira_conquista,
 }

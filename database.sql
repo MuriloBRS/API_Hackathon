@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS batalhas (
     FOREIGN KEY (usuarios_id2) REFERENCES usuarios(id)
 );
 
+ALTER TABLE batalhas
+ADD COLUMN status ENUM('pendente', 'aceita', 'recusada', 'finalizada')
+DEFAULT 'pendente';
+
 
 --NIVEL
 CREATE TABLE IF NOT EXISTS nivel (

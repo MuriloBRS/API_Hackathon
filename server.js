@@ -14,6 +14,6 @@ app.use(router)
 
 
 
-app.listen(3002, () => {
+app.listen(3002,'0.0.0.0', () => {
     console.log('http://localhost:3002' )
 })
